@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>Text Spiral Studio</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- STYLES --- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #222; /* Dark Studio BG */
+            margin: 0; padding: 0;
+            height: 100vh;
+            display: flex; flex-direction: column;
+        }
+
+        /* --- CONTROL PANEL --- */
+        .controls {
+            background: white;
+            padding: 8px;
+            display: flex; flex-wrap: wrap; gap: 8px;
+            justify-content: center; align-items: flex-start;
+            border-bottom: 3px solid #007bff;
+            z-index: 100;
+        }
+
+        .panel-group {
+            background: #f8f9fa; border: 1px solid #ddd;
+            padding: 6px 10px; border-radius: 6px;
+            display: flex; flex-direction: column; justify-content: center;
+        }
+        
+        /* Flex Wrap added to allow wrapping on mobile */
+        .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        
+        /* Keeps labels and their inputs together when wrapping */
+        .item-pair { display: flex; align-items: center; gap: 3px; }
+
+        .group-label { 
+            font-size: 10px; font-weight: bold; color: #555; 
+            text-transform: uppercase; margin-bottom: 4px; border-bottom: 1px solid #eee; padding-bottom: 2px;
+        }
+        .input-label { font-size: 9px; color: #666; font-weight: bold; }
+
+        input, select, textarea { padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+        input[type="number"] { width: 45px; }
+        input[type="color"] { width: 30px; height: 26px; padding: 0; border: none; cursor: pointer; }
+        input[type="checkbox"] { width: auto; margin: 0; cursor: pointer; }
+        
+        textarea {
+            width: 250px;
+            resize: vertical;
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: 16px;
+        }
+        
+        button {
+            padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; font-size: 12px;
+        }
+        .btn-blue { background: #007bff; }
+        .btn-green { background: #28a745; }
+        .btn-grey { background: #6c757d; }
+
+        /* --- WORKSPACE --- */
+        .workspace {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            background: #333;
+        }
+
+        .scroll-container {
+            width: 100%; height: 100%;
+            overflow: auto; /* Allow native scrolling */
+            display: flex; justify-content: center; align-items: flex-start;
+            padding: 50px;
+            touch-action: pan-x pan-y; /* Enable touch gestures */
+        }
+
+        #paper {
+            background-color: white;
+            width: 800px; height: 800px;
+            box-shadow: 0 0 60px rgba(0,0,0,0.6);
+            transition: width 0.1s, height 0.1s;
+        }
+
+        svg { width: 100%; height: 100%; display: block; }
+        
+        /* Font Config - Default placeholder before JS loads */
+        text { font-family: 'Amiri', 'Arial', sans-serif; font-weight: 700; direction: rtl; }
+
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        
+        <div class="panel-group">
+            <div class="group-label">Text Input</div>
+            <textarea id="manualInput" rows="2" dir="rtl" placeholder="اكتب النص هنا..." oninput="generate()"></textarea>
+        </div>
+
+        <div class="panel-group">
+            <div class="group-label">Text Processing</div>
+            <div class="row">
+                <div class="item-pair">
+                    <input type="checkbox" id="stripAiraab" onchange="generate()">
+                    <span class="input-label" style="cursor: pointer;" onclick="document.getElementById('stripAiraab').click()">Clean (Letters Only)</span>
+                </div>
+                <div class="item-pair" style="margin-left: 5px;">
+                    <input type="checkbox" id="separateLetters" onchange="generate()">
+                    <span class="input-label" style="cursor: pointer;" onclick="document.getElementById('separateLetters').click()">Separate Letters</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-group">
+            <div class="group-label">Visual Styles</div>
+            <div class="row">
+                <div class="item-pair">
+                    <span class="input-label">Color:</span>
+                    <input type="color" id="textColor" value="#000000" onchange="generate()">
+                </div>
+                
+                <div class="item-pair">
+                    <span class="input-label">Font:</span>
+                    <select id="fontSelect" onchange="changeFont()" style="width:100px;">
+                        <option value="saleem">PDMS Saleem</option>
+                        <option value="alqalam">Al Qalam</option>
+                    </select>
+                </div>
+
+                <div class="item-pair">
+                    <span class="input-label">Size:</span>
+                    <input type="number" id="fontSize" value="40" onchange="generate()">
+                </div>
+                
+                <div class="item-pair">
+                    <span class="input-label">Gap:</span>
+                    <input type="number" id="gap" value="45" onchange="generate()">
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-group">
+            <div class="group-label">Layout Options</div>
+            <div class="row">
+                <div class="item-pair">
+                    <span class="input-label">Dir:</span>
+                    <select id="direction" onchange="generate()" style="width:80px;">
+                        <option value="center">Center Out</option>
+                        <option value="outer">Outer In</option>
+                    </select>
+                </div>
+                
+                <div class="item-pair">
+                    <span class="input-label">Center Space:</span>
+                    <input type="number" id="squareSize" value="100" onchange="generate()">
+                    <span class="input-label">px</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-group" style="background:none; border:none; padding-top: 14px;">
+            <div class="row">
+                <button class="btn-blue" onclick="generate()">Force Refresh</button>
+                <button class="btn-green" onclick="downloadPNG()">Download PNG</button>
+            </div>
+        </div>
+        
+        <div id="status" style="width:100%; text-align:center; color:#28a745; font-size:11px; margin-top:4px; font-weight:bold;">Initializing...</div>
+    </div>
+
+    <div class="workspace">
+        <div class="scroll-container">
+            <div id="paper">
+                <svg id="mainSvg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="measureCanvas" style="display:none;"></canvas>
+
+    <script>
+        let fullText = "";
+        
+        // Font Variables
+        let loadedFonts = {
+            alqalam: null,
+            saleem: null
+        };
+        let customFontData = null; // Stores currently active Base64 string
+        let currentFontFamily = "'Amiri', 'Arial', sans-serif"; // Fallback
+        let currentFontWeight = "normal";
+
+        // Helper function to read blob as Base64
+        function blobToBase64(blob) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        // --- AUTOMATIC LOADING OF FONTS ---
+        window.onload = async () => {
+            const stat = document.getElementById('status');
+            stat.innerText = "Loading Fonts...";
+            
+            try {
+                // Fetch both fonts concurrently
+                const [reqAlQalam, reqSaleem] = await Promise.all([
+                    fetch('fonts/alqalam.ttf').catch(() => null),
+                    fetch('fonts/pdms_saleem.ttf').catch(() => null)
+                ]);
+
+                // Process Al Qalam
+                if (reqAlQalam && reqAlQalam.ok) {
+                    const blob1 = await reqAlQalam.blob();
+                    loadedFonts.alqalam = await blobToBase64(blob1);
+                }
+
+                // Process PDMS Saleem
+                if (reqSaleem && reqSaleem.ok) {
+                    const blob2 = await reqSaleem.blob();
+                    loadedFonts.saleem = await blobToBase64(blob2);
+                }
+
+                // Verify at least one loaded
+                if (!loadedFonts.alqalam && !loadedFonts.saleem) {
+                    throw new Error("No fonts could be loaded.");
+                }
+
+                // Set initial active font (Default to Saleem, fallback to Al Qalam)
+                if (loadedFonts.saleem) {
+                    customFontData = loadedFonts.saleem;
+                    document.getElementById('fontSelect').value = 'saleem';
+                    document.getElementById('gap').value = 45; // Auto-set gap for saleem
+                } else {
+                    customFontData = loadedFonts.alqalam;
+                    document.getElementById('fontSelect').value = 'alqalam';
+                    document.getElementById('gap').value = 60; // Auto-set gap for alqalam
+                }
+
+                currentFontFamily = "'CustomArabicFont'";
+                injectFontFace(customFontData);
+                
+                stat.innerText = "Ready";
+                generate(); 
+
+            } catch(e) {
+                console.error(e);
+                stat.innerText = "Font Error: Using System Font";
+                stat.style.color = "red";
+                generate();
+            }
+        };
+
+        function changeFont() {
+            const selected = document.getElementById('fontSelect').value;
+            if (loadedFonts[selected]) {
+                customFontData = loadedFonts[selected];
+                injectFontFace(customFontData);
+                
+                // Adjust gap dynamically based on selected font
+                if (selected === 'saleem') {
+                    document.getElementById('gap').value = 45;
+                } else if (selected === 'alqalam') {
+                    document.getElementById('gap').value = 60;
+                }
+                
+                generate();
+            } else {
+                alert("This font failed to load initially.");
+            }
+        }
+
+        function injectFontFace(base64) {
+            // Remove old style if exists
+            const old = document.getElementById('dynamicFontStyle');
+            if(old) old.remove();
+
+            const newStyle = document.createElement('style');
+            newStyle.id = 'dynamicFontStyle';
+            // We force a standard name so export logic stays clean
+            newStyle.textContent = `
+                @font-face {
+                    font-family: 'CustomArabicFont';
+                    src: url('${base64}');
+                }
+            `;
+            document.head.appendChild(newStyle);
+            currentFontFamily = "'CustomArabicFont'";
+        }
+
+        function generate() {
+            // 1. Pull raw text directly from the textarea
+            let rawText = document.getElementById('manualInput').value;
+            const svg = document.getElementById('mainSvg');
+            
+            // Check empty state
+            if(!rawText.trim()) {
+                svg.innerHTML = "";
+                return;
+            }
+
+            // 2. Apply Text Processing Filters
+            const stripAiraab = document.getElementById('stripAiraab').checked;
+            const separateLetters = document.getElementById('separateLetters').checked;
+
+            if (stripAiraab) {
+                // Remove EVERYTHING except Letters and Spaces. 
+                // \p{M} strips Airaab/Marks. 
+                // [^\p{L}\s] strips numbers, punctuation, and symbols. 
+                // [a-zA-Z] strips English letters specifically.
+                rawText = rawText.replace(/[^\p{L}\s]|\p{M}|[a-zA-Z]/gu, '');
+                
+                // Clean up any extra spaces left behind by removed punctuation
+                rawText = rawText.replace(/\s+/g, ' ').trim();
+            }
+
+            if (separateLetters) {
+                // Removes all existing spaces, splits characters, and joins with a single space
+                rawText = rawText.replace(/\s+/g, '').split('').join(' ');
+            }
+
+            fullText = rawText;
+            svg.innerHTML = "";
+
+            // Inputs
+            const color = document.getElementById('textColor').value;
+            const fontSize = parseInt(document.getElementById('fontSize').value);
+            const gap = parseInt(document.getElementById('gap').value);
+            const direction = document.getElementById('direction').value;
+            const squareSize = parseInt(document.getElementById('squareSize').value);
+
+            // Measure Text (Using correct loaded font)
+            const ctx = document.getElementById('measureCanvas').getContext('2d');
+            ctx.font = `${currentFontWeight} ${fontSize}px ${currentFontFamily}`;
+            const textLen = ctx.measureText(fullText).width;
+
+            // Spiral Calculation
+            const b = gap / (2 * Math.PI);
+            let startRadius = (squareSize / 2) + 10;
+            let startTheta = startRadius / b;
+            const endTheta = Math.sqrt( (2 * (textLen + 3000) / b) + (startTheta*startTheta) );
+
+            // Generate Points
+            const steps = 600 * ((endTheta - startTheta)/6);
+            const stepSize = (endTheta - startTheta) / steps;
+            
+            let points = [];
+            for(let t = startTheta; t <= endTheta; t+=stepSize) {
+                points.push({ x: (b*t)*Math.cos(t), y: (b*t)*Math.sin(t) });
+            }
+            if(direction === "center") points.reverse();
+
+            // Draw
+            if(points.length < 2) return;
+            let d = `M ${points[0].x} ${points[0].y}`;
+            for(let i=1; i<points.length; i++) d += ` L ${points[i].x} ${points[i].y}`;
+
+            // Add Styles (Crucial for Export)
+            const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
+            // Embed the font BASE64 directly into SVG style for portability
+            if (customFontData) {
+                style.textContent = `
+                    @font-face { font-family: 'CustomArabicFont'; src: url('${customFontData}'); }
+                    text { font-family: 'CustomArabicFont'; font-weight: ${currentFontWeight}; direction: rtl; }
+                `;
+            } else {
+                style.textContent = `text { font-family: serif; font-weight: 700; direction: rtl; }`;
+            }
+            svg.appendChild(style);
+
+            // Create Background Rect (White)
+            const bgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            bgRect.setAttribute("fill", "#ffffff"); 
+            svg.appendChild(bgRect);
+
+            // Path Element
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("id", "spiralP");
+            path.setAttribute("d", d);
+            path.setAttribute("fill", "none");
+            svg.appendChild(path);
+
+            // Text Element
+            const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            txt.setAttribute("font-size", fontSize);
+            txt.setAttribute("fill", color); 
+            txt.setAttribute("dy", fontSize * 0.35);
+
+            const tp = document.createElementNS("http://www.w3.org/2000/svg", "textPath");
+            tp.setAttribute("href", "#spiralP");
+            tp.textContent = fullText;
+            tp.setAttribute("startOffset", "100%");
+            if(direction === "center") tp.setAttribute("side", "right");
+            
+            txt.appendChild(tp);
+            svg.appendChild(txt);
+
+            // Set ViewBox
+            const maxR = b * endTheta;
+            const dim = (maxR * 2) + (fontSize * 4);
+            const minCoord = -dim / 2;
+
+            svg.setAttribute("viewBox", `${minCoord} ${minCoord} ${dim} ${dim}`);
+            // Force Square Aspect Ratio
+            svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+            
+            bgRect.setAttribute("x", minCoord);
+            bgRect.setAttribute("y", minCoord);
+            bgRect.setAttribute("width", dim);
+            bgRect.setAttribute("height", dim);
+        }
+
+        // --- EXPORT ---
+
+        function downloadPNG() {
+            const svg = document.getElementById('mainSvg');
+            const status = document.getElementById('status');
+            status.innerText = "Generating 8K PNG...";
+
+            // ULTRA HIGH RESOLUTION SETTING
+            const renderSize = 8000; // 8K Resolution (~64 Megapixels)
+            
+            const oldW = svg.getAttribute("width");
+            const oldH = svg.getAttribute("height");
+            svg.setAttribute("width", renderSize);
+            svg.setAttribute("height", renderSize);
+            
+            // Explicitly set namespace
+            svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+
+            const ser = new XMLSerializer();
+            const svgData = ser.serializeToString(svg);
+
+            // Restore UI size
+            if(oldW) svg.setAttribute("width", oldW); else svg.removeAttribute("width");
+            if(oldH) svg.setAttribute("height", oldH); else svg.removeAttribute("height");
+
+            const blob = new Blob([svgData], {type: "image/svg+xml;charset=utf-8"});
+            const url = URL.createObjectURL(blob);
+            
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement("canvas");
+                canvas.width = renderSize;
+                canvas.height = renderSize;
+                const ctx = canvas.getContext("2d");
+                
+                // Fill White Background
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0,0, renderSize, renderSize);
+                
+                // Draw High Res Image
+                ctx.drawImage(img, 0, 0, renderSize, renderSize);
+                
+                saveFile(canvas.toDataURL("image/png"), "text_spiral_8k.png");
+                URL.revokeObjectURL(url);
+                status.innerText = "Done";
+            };
+            
+            // Wait slightly for image to parse the base64 font
+            setTimeout(() => {
+                img.src = url;
+            }, 100);
+        }
+
+        function saveFile(url, name) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    </script>
+</body>
+</html>
