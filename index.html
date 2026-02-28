@@ -60,7 +60,9 @@
         
         button {
             padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; font-size: 12px;
+            transition: opacity 0.2s;
         }
+        button:hover { opacity: 0.8; }
         .btn-blue { background: #007bff; }
         .btn-green { background: #28a745; }
         .btn-grey { background: #6c757d; }
@@ -170,6 +172,7 @@
             <div class="row">
                 <button class="btn-blue" onclick="generate()">Generate</button>
                 <button class="btn-green" onclick="downloadPNG()">Download PNG</button>
+                <button class="btn-grey" onclick="copyProcessedText()">Copy Processed Text</button>
             </div>
         </div>
         
@@ -314,13 +317,21 @@
             const separateLetters = document.getElementById('separateLetters').checked;
 
             if (stripAiraab) {
-                // Remove EVERYTHING except Letters and Spaces. 
-                // \p{M} strips Airaab/Marks. 
-                // [^\p{L}\s] strips numbers, punctuation, and symbols. 
-                // [a-zA-Z] strips English letters specifically.
-                rawText = rawText.replace(/[^\p{L}\s]|\p{M}|[a-zA-Z]/gu, '');
+                // STEP A: Replace punctuation, numbers, symbols, English letters, and dedicated Unicode Waqf marks with a SPACE.
+                // This ensures we get a gap before indiscriminate Airaab removal.
+                // \p{P} = Punctuation, \p{S} = Symbols, \p{N} = Numbers
+                // \u06D6-\u06ED cover most Quranic small high stop marks.
+                rawText = rawText.replace(/[\p{P}\p{S}\p{N}a-zA-Z\u06D6-\u06ED\u06DD\u06DE\u06E9]/gu, ' ');
+
+                // STEP B: Replace common standalone text Waqf marks with a space.
+                // Looks for these exact sequences surrounded by boundaries (like spaces, which we just generated above)
+                rawText = rawText.replace(/(?:^|\s)(لا|ج|ط|قف|م|ق|صلے|ص|ز|ع|وقف)(?=\s|$)/g, ' ');
+
+                // STEP C: Remove all remaining Airaab/Tashkeel completely (without adding extra spaces).
+                // \p{M} matches all diacritic marks.
+                rawText = rawText.replace(/\p{M}/gu, '');
                 
-                // Clean up any extra spaces left behind by removed punctuation
+                // STEP D: Clean up any multiple consecutive spaces into a single crisp space.
                 rawText = rawText.replace(/\s+/g, ' ').trim();
             }
 
@@ -420,12 +431,32 @@
             bgRect.setAttribute("height", dim);
         }
 
-        // --- EXPORT ---
+        // --- NEW COPY FUNCTION ---
+        function copyProcessedText() {
+            if (!fullText) return;
+            
+            navigator.clipboard.writeText(fullText).then(() => {
+                const status = document.getElementById('status');
+                status.innerText = "Processed Text Copied!";
+                status.style.color = "#007bff";
+                
+                // Reset status text after 2 seconds
+                setTimeout(() => { 
+                    status.innerText = "Ready"; 
+                    status.style.color = "#28a745";
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                alert("Failed to copy to clipboard.");
+            });
+        }
 
+        // --- EXPORT ---
         function downloadPNG() {
             const svg = document.getElementById('mainSvg');
             const status = document.getElementById('status');
             status.innerText = "Generating 8K PNG...";
+            status.style.color = "#28a745";
 
             // ULTRA HIGH RESOLUTION SETTING
             const renderSize = 8000; // 8K Resolution (~64 Megapixels)
